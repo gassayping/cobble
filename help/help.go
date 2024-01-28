@@ -7,5 +7,5 @@ import (
 func Help() {
 	fmt.Println("Usage:\n" +
 		"\tcobble new [name]\t- Creates a new project interactively.\n" +
-		"\tcobble help\t- Show this help menu")
+		"\tcobble help\t\t- Show this help menu")
 }

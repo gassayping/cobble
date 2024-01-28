@@ -17,6 +17,7 @@ func Run(args []string) {
 	if len(args) == 0 {
 		fmt.Print("Project Name: ")
 		proj.Name, _ = reader.ReadString('\n')
+		proj.Name = strings.TrimSpace(proj.Name)
 	} else {
 		proj.Name = args[0]
 	}
@@ -29,6 +30,7 @@ func Run(args []string) {
 	fmt.Println("\t" + strings.Join(versions.Stables, "\n\t") + "\n\t" + versions.Latest)
 	fmt.Print("Version: ")
 	proj.APIVersion, _ = reader.ReadString('\n')
+	proj.APIVersion = strings.TrimSpace(proj.APIVersion)
 	proj.IsStable = len(proj.APIVersion) == 5 || strings.Contains(proj.APIVersion, "-rc")
 
 	fmt.Print("Use @minecraft/server-ui? (y/n): ")
@@ -58,7 +60,7 @@ func initialize(project *project.Project) {
 				return
 			}
 		} else {
-			if exec.Command("npm", "install", "@minecraft/server-ui@1.2.0-beta").Run() != nil {
+			if exec.Command("npm", "install", "@minecraft/server-ui@1.2.0-beta.1.20.50-stable").Run() != nil {
 				fmt.Println("Could not install @minecraft/server-ui@1.2.0-beta")
 				return
 			}
