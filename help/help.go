@@ -5,8 +5,7 @@ import (
 )
 
 func Help() {
-	fmt.Println("Cobble Help:\n" +
-		"\tnew\t- Create a new project\n" +
-		"\tupdate\t- Change a project's Script API version\n" +
-		"\thelp\t- Show this help menu")
+	fmt.Println("Usage:\n" +
+		"\tcobble new [name]\t- Creates a new project interactively.\n" +
+		"\tcobble help\t- Show this help menu")
 }
