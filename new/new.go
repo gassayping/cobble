@@ -62,14 +62,18 @@ func initialize(c chan string) {
 	os.MkdirAll(project.Name+"/src/"+project.Name+"_BP/scripts", os.ModePerm)
 	os.Chdir(project.Name)
 
-	writeTSConfig(project.Name)
+	if exec.Command("git", "init").Run() != nil {
+		panic("Failed to initialize git")
+	}
+
 	if exec.Command("npm", "init", "-y").Run() != nil {
-		panic("Could not initialize npm")
+		panic("Failed to initialize npm")
 	}
 
 	if exec.Command("npm", "install", "typescript").Run() != nil {
 		panic("Could not install typescript")
 	}
+	writeTSConfig(project.Name)
 
 	project.Description = <-c
 	project.APIVersion = <-c
