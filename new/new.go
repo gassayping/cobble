@@ -14,6 +14,10 @@ import (
 func Run(args []string) {
 	reader := bufio.NewReader(os.Stdin)
 	var proj project.Project
+
+	c := make(chan string, 1)
+	go initialize(c)
+
 	if len(args) == 0 {
 		fmt.Print("Project Name: ")
 		proj.Name, _ = reader.ReadString('\n')
@@ -21,62 +25,80 @@ func Run(args []string) {
 	} else {
 		proj.Name = args[0]
 	}
+	c <- proj.Name
 
 	fmt.Print("Project Description: ")
 	proj.Description, _ = reader.ReadString('\n')
+	proj.Description = strings.TrimSpace(proj.Description)
 
 	versions := getAvailableVersions()
-	fmt.Println("Available Stable Versions:")
-	fmt.Println("\t" + strings.Join(versions.Stables, "\n\t") + "\n\t" + versions.Latest)
+	fmt.Println("Available Stable Versions:\n" +
+		"\t" + strings.Join(versions.Stables, "\n\t") + "\n\t" + versions.Latest)
 	fmt.Print("Version: ")
 	proj.APIVersion, _ = reader.ReadString('\n')
 	proj.APIVersion = strings.TrimSpace(proj.APIVersion)
 	proj.IsStable = len(proj.APIVersion) == 5 || strings.Contains(proj.APIVersion, "-rc")
+
+	c <- proj.Description
+	c <- proj.APIVersion
 
 	fmt.Print("Use @minecraft/server-ui? (y/n): ")
 	var input string
 	fmt.Scanln(&input)
 	proj.UsesUI = input == "" || input[0] == 'y'
 
-	initialize(&proj)
+	c <- fmt.Sprint(proj.IsStable)
+	c <- fmt.Sprint(proj.UsesUI)
+	c <- "" // Fills channel
+	c <- "" // Waits for initialize goroutine to read before exiting
+
 
 }
 
-func initialize(project *project.Project) {
+func initialize(c chan string) {
+	project := project.Project{}
+	project.Name = <-c
+
 	os.MkdirAll(project.Name+"/src/"+project.Name+"_BP/scripts", os.ModePerm)
-	writeBPManifest(project)
 	os.Chdir(project.Name)
+
+	writeTSConfig(project.Name)
 	if exec.Command("npm", "init", "-y").Run() != nil {
-		fmt.Println("Could not run npm init")
-	}
-	if exec.Command("npm", "install", "@minecraft/server@"+project.APIVersion).Run() != nil {
-		fmt.Println("Could not install @minecraft/server@" + project.APIVersion)
-		return
-	}
-	if project.UsesUI {
-		if project.IsStable {
-			if exec.Command("npm", "install", "@minecraft/server-ui").Run() != nil {
-				fmt.Println("Could not install @minecraft/server-ui")
-				return
-			}
-		} else {
-			if exec.Command("npm", "install", "@minecraft/server-ui@1.2.0-beta.1.20.50-stable").Run() != nil {
-				fmt.Println("Could not install @minecraft/server-ui@1.2.0-beta")
-				return
-			}
-		}
+		panic("Could not initialize npm")
 	}
 
 	if exec.Command("npm", "install", "typescript").Run() != nil {
-		fmt.Println("Could not install typescript")
-		return
+		panic("Could not install typescript")
 	}
-	writeTSConfig(project.Name)
+
+	project.Description = <-c
+	project.APIVersion = <-c
+
+	if exec.Command("npm", "install", "@minecraft/server@"+project.APIVersion).Run() != nil {
+		panic("Could not install @minecraft/server@" + project.APIVersion)
+	}
+
+	project.IsStable = <-c == "true"
+	project.UsesUI = <-c == "true"
+
+	if project.UsesUI {
+		if project.IsStable {
+			if exec.Command("npm", "install", "@minecraft/server-ui").Run() != nil {
+				panic("Could not install @minecraft/server-ui")
+			}
+		} else {
+			if exec.Command("npm", "install", "@minecraft/server-ui@1.2.0-beta.1.20.50-stable").Run() != nil {
+				panic("Could not install @minecraft/server-ui@1.2.0-beta.1.20.50-stable")
+			}
+		}
+	}
+	writeBPManifest(&project)
+	<-c
 
 }
 
 func writeBPManifest(project *project.Project) {
-	os.WriteFile(project.Name+"/src/"+project.Name+"_BP/manifest.json", []byte(
+	os.WriteFile("src/"+project.Name+"_BP/manifest.json", []byte(
 		fmt.Sprintf(`{
 	"format_version": 2,
 	"header": {
