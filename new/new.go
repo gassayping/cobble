@@ -12,52 +12,11 @@ import (
 )
 
 func Run(args []string) {
-	reader := bufio.NewReader(os.Stdin)
-	var proj project.Project
+	answer := make(chan string, 1)
+	go getAnswers(answer, args)
 
-	c := make(chan string, 1)
-	go initialize(c)
-
-	if len(args) == 0 {
-		fmt.Print("Project Name: ")
-		proj.Name, _ = reader.ReadString('\n')
-		proj.Name = strings.TrimSpace(proj.Name)
-	} else {
-		proj.Name = args[0]
-	}
-	c <- proj.Name
-
-	fmt.Print("Project Description: ")
-	proj.Description, _ = reader.ReadString('\n')
-	proj.Description = strings.TrimSpace(proj.Description)
-
-	versions := getAvailableVersions()
-	fmt.Println("Available Stable Versions:\n" +
-		"\t" + strings.Join(versions.Stables, "\n\t") + "\n\t" + versions.Latest)
-	fmt.Print("Version: ")
-	proj.APIVersion, _ = reader.ReadString('\n')
-	proj.APIVersion = strings.TrimSpace(proj.APIVersion)
-	proj.IsStable = len(proj.APIVersion) == 5 || strings.Contains(proj.APIVersion, "-rc")
-
-	c <- proj.Description
-	c <- proj.APIVersion
-
-	fmt.Print("Use @minecraft/server-ui? (y/n): ")
-	var input string
-	fmt.Scanln(&input)
-	proj.UsesUI = input == "" || input[0] == 'y'
-
-	c <- fmt.Sprint(proj.IsStable)
-	c <- fmt.Sprint(proj.UsesUI)
-	c <- "" // Fills channel
-	c <- "" // Waits for initialize goroutine to read before exiting
-
-
-}
-
-func initialize(c chan string) {
 	project := project.Project{}
-	project.Name = <-c
+	project.Name = <-answer
 
 	os.MkdirAll(project.Name+"/src/"+project.Name+"_BP/scripts", os.ModePerm)
 	os.Chdir(project.Name)
@@ -75,15 +34,15 @@ func initialize(c chan string) {
 	}
 	writeTSConfig(project.Name)
 
-	project.Description = <-c
-	project.APIVersion = <-c
+	project.Description = <-answer
+	project.APIVersion = <-answer
 
 	if exec.Command("npm", "install", "@minecraft/server@"+project.APIVersion).Run() != nil {
 		panic("Could not install @minecraft/server@" + project.APIVersion)
 	}
 
-	project.IsStable = <-c == "true"
-	project.UsesUI = <-c == "true"
+	project.IsStable = <-answer == "true"
+	project.UsesUI = <-answer == "true"
 
 	if project.UsesUI {
 		if project.IsStable {
@@ -97,10 +56,45 @@ func initialize(c chan string) {
 		}
 	}
 	writeBPManifest(&project)
-	<-c
 
 }
 
+func getAnswers(answer chan string, args []string) {
+	reader := bufio.NewReader(os.Stdin)
+	var proj project.Project
+
+	if len(args) == 0 {
+		fmt.Print("Project Name: ")
+		proj.Name, _ = reader.ReadString('\n')
+		proj.Name = strings.TrimSpace(proj.Name)
+	} else {
+		proj.Name = args[0]
+	}
+	answer <- proj.Name
+
+	fmt.Print("Project Description: ")
+	proj.Description, _ = reader.ReadString('\n')
+	proj.Description = strings.TrimSpace(proj.Description)
+
+	versions := getAvailableVersions()
+	fmt.Println("Available Stable Versions:\n" +
+		"\t" + strings.Join(versions.Stables, "\n\t") + "\n\t" + versions.Latest)
+	fmt.Print("Version: ")
+	proj.APIVersion, _ = reader.ReadString('\n')
+	proj.APIVersion = strings.TrimSpace(proj.APIVersion)
+	proj.IsStable = len(proj.APIVersion) == 5 || strings.Contains(proj.APIVersion, "-rc")
+
+	answer <- proj.Description
+	answer <- proj.APIVersion
+
+	fmt.Print("Use @minecraft/server-ui? (y/n): ")
+	var input string
+	fmt.Scanln(&input)
+	proj.UsesUI = input == "" || input[0] == 'y'
+
+	answer <- fmt.Sprint(proj.IsStable)
+	answer <- fmt.Sprint(proj.UsesUI)
+}
 func writeBPManifest(project *project.Project) {
 	os.WriteFile("src/"+project.Name+"_BP/manifest.json", []byte(
 		fmt.Sprintf(`{
