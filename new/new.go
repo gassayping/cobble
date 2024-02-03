@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -77,11 +78,28 @@ func getAnswers(answer chan string, args []string) {
 	proj.Description = strings.TrimSpace(proj.Description)
 
 	versions := getAvailableVersions()
-	fmt.Println("Available Stable Versions:\n" +
-		"\t" + strings.Join(versions.Stables, "\n\t") + "\n\t" + versions.Latest)
+	fmt.Println("Available Versions:")
+
+	for k, v := range versions.Stables {
+		fmt.Println("\t", k+1, "- "+v)
+	}
+	i := len(versions.Stables)
+	fmt.Println("\t", i+1, "-", versions.Latest)
+	fmt.Println("\t", i+2, "-", versions.RC)
+	fmt.Println("\t", i+3, "-", versions.Beta)
 	fmt.Print("Version: ")
+
 	proj.APIVersion, _ = reader.ReadString('\n')
 	proj.APIVersion = strings.TrimSpace(proj.APIVersion)
+	if len(proj.APIVersion) < i+3 {
+		index, err := strconv.ParseInt(proj.APIVersion, 10, 64)
+		if err != nil {
+			fmt.Println("Invalid Version")
+			panic(err)
+		}
+		proj.APIVersion = append(versions.Stables, versions.Latest, versions.Beta, versions.RC, versions.Preview)[index-1]
+	}
+	fmt.Println(proj.APIVersion)
 	proj.IsStable = len(proj.APIVersion) == 5 || strings.Contains(proj.APIVersion, "-rc")
 
 	answer <- proj.Description
