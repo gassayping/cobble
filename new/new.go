@@ -130,60 +130,6 @@ func writeBPManifest(project *project.Project) {
 	}
 
 	return
-
-	os.WriteFile("src/"+project.Name+"_BP/manifest.json", []byte(
-		fmt.Sprintf(`{
-	"format_version": 2,
-	"header": {
-		"name": "%v",
-		"description": "%v",
-		"uuid": "%v",
-		"version": [
-			0,
-			0,
-			1
-		],
-		"min_engine_version": [
-			1,
-			20,
-			50
-		]
-	},
-	"modules": [
-		{
-			"type": "data",
-			"uuid": "%v",
-			"version": [
-				1,
-				0,
-				0
-			]
-		},
-		{
-			"type": "script",
-			"language": "javascript",
-			"uuid": "%v",
-			"version": [
-				0,
-				0,
-				1
-			],
-			"entry": "scripts/main.js"
-		}
-	],
-	"dependencies": [
-		{
-			"module_name": "@minecraft/server",
-			"version": "%v"
-		},
-		{
-			"module_name": "@minecraft/server-ui",
-			"version": "1.2.0-beta"
-		}
-	]
-}`,
-			project.Name, project.Description, uuid.New(), uuid.New(), uuid.New(), project.APIVersion),
-	), 0666)
 }
 
 func writeTSConfig(projName string) {
