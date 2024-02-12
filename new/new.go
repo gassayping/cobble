@@ -3,13 +3,18 @@ package new
 import (
 	"bufio"
 	"cobble/project"
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"text/template"
 
 	"github.com/google/uuid"
 )
+
+//go:embed bpManifest.dflt.tmpl
+var bundledFS embed.FS
 
 func Run(args []string) {
 	answer := make(chan string, 1)
@@ -95,7 +100,37 @@ func getAnswers(answer chan string, args []string) {
 	answer <- fmt.Sprint(proj.IsStable)
 	answer <- fmt.Sprint(proj.UsesUI)
 }
+
 func writeBPManifest(project *project.Project) {
+	manifest, err := os.OpenFile("src/"+project.Name+"_BP/manifest.json", os.O_CREATE|os.O_RDWR, 0666)
+	defer manifest.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	os.Chdir("..")
+	tmplFile := "bpManifest.tmpl"
+	var output *template.Template
+
+	if _, err = os.OpenFile(tmplFile, os.O_RDONLY, 0666); err == nil {
+		tmpl := template.New(tmplFile).Funcs(template.FuncMap{"uuid": uuid.New})
+		output, err = tmpl.ParseFiles(tmplFile)
+	} else {
+		tmplFile = "bpManifest.dflt.tmpl"
+		tmpl := template.New(tmplFile).Funcs(template.FuncMap{"uuid": uuid.New})
+		output, err = tmpl.ParseFS(bundledFS, tmplFile)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	err = output.Execute(manifest, project)
+	if err != nil {
+		panic(err)
+	}
+
+	return
+
 	os.WriteFile("src/"+project.Name+"_BP/manifest.json", []byte(
 		fmt.Sprintf(`{
 	"format_version": 2,
